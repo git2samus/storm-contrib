@@ -1,13 +1,9 @@
 package storm.ml;
 
 import backtype.storm.Config;
-import backtype.storm.drpc.DRPCSpout;
-import backtype.storm.drpc.LinearDRPCTopologyBuilder;
-import backtype.storm.drpc.ReturnResults;
 import backtype.storm.LocalCluster;
 import backtype.storm.LocalDRPC;
 import backtype.storm.StormSubmitter;
-import backtype.storm.topology.TopologyBuilder;
 
 import net.spy.memcached.AddrUtil;
 import net.spy.memcached.internal.OperationFuture;
@@ -18,8 +14,7 @@ import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.List;
 
-import storm.ml.bolt.EvaluationBolt;
-import storm.ml.bolt.TrainingBolt;
+import storm.ml.MLTopologyBuilder;
 import storm.ml.spout.ExampleTrainingSpout;
 
 public class PerceptronDRPCTopology {
@@ -28,68 +23,19 @@ public class PerceptronDRPCTopology {
     public static final Double threshold     = 0.1;
     public static final Double learning_rate = 0.1;
 
-    public static TopologyBuilder prepare_topology(LocalDRPC drpc) {
-        TopologyBuilder topology_builder = new TopologyBuilder();
-
-        // training
-        topology_builder.setSpout("training-spout",
-            new ExampleTrainingSpout()
-        );
-
-        topology_builder.setBolt("training-bolt",
-            new TrainingBolt(
-                PerceptronDRPCTopology.bias,
-                PerceptronDRPCTopology.threshold,
-                PerceptronDRPCTopology.learning_rate,
-                PerceptronDRPCTopology.MEMCACHED_SERVERS
-            )
-        ).shuffleGrouping("training-spout");
-
-
-        // evaluation
-        DRPCSpout drpc_spout; if (drpc!=null)
-            drpc_spout = new DRPCSpout("evaluate", drpc);
-        else
-            drpc_spout = new DRPCSpout("evaluate");
-
-        topology_builder.setSpout("drpc-spout",
-            drpc_spout
-        );
-
-        topology_builder.setBolt("drpc-evaluation",
-            new EvaluationBolt(
-                PerceptronDRPCTopology.bias,
-                PerceptronDRPCTopology.threshold,
-                PerceptronDRPCTopology.MEMCACHED_SERVERS
-            )
-        ).shuffleGrouping("drpc-spout");
-
-        topology_builder.setBolt(
-            "drpc-return",
-            new ReturnResults()
-        ).shuffleGrouping("drpc-evaluation");
-
-
-        return topology_builder;
-    }
-
-    public static TopologyBuilder prepare_topology() {
-        return prepare_topology(null);
-    }
-
     public static void main(String[] args) throws Exception {
         MemcachedClient memcache = new MemcachedClient(AddrUtil.getAddresses(PerceptronDRPCTopology.MEMCACHED_SERVERS));
         OperationFuture promise = memcache.set("weights", 0, "[0.0, 0.0]");
         promise.get();
 
-        Config topoplogy_conf = new Config();
+        Config topology_conf = new Config();
 
         if (args==null || args.length==0) {
             LocalDRPC drpc = new LocalDRPC();
             LocalCluster cluster = new LocalCluster();
 
-            TopologyBuilder topology_builder = prepare_topology(drpc);
-            cluster.submitTopology("perceptron", topoplogy_conf, topology_builder.createTopology());
+            MLTopologyBuilder ml_topology_builder = new MLTopologyBuilder();
+            cluster.submitTopology("perceptron", topology_conf, ml_topology_builder.createLocalTopology(drpc));
 
             int error_count = 0;
             FileWriter fstream = new FileWriter("out.csv");
@@ -123,8 +69,8 @@ public class PerceptronDRPCTopology {
             cluster.shutdown();
             drpc.shutdown();
         } else {
-            TopologyBuilder topology_builder = prepare_topology();
-            StormSubmitter.submitTopology(args[0], topoplogy_conf, topology_builder.createTopology());
+            MLTopologyBuilder ml_topology_builder = new MLTopologyBuilder();
+            StormSubmitter.submitTopology(args[0], topology_conf, ml_topology_builder.createRemoteTopology());
         }
     }
 
