@@ -35,7 +35,7 @@ public class PerceptronDRPCTopology {
             LocalCluster cluster = new LocalCluster();
 
             MLTopologyBuilder ml_topology_builder = new MLTopologyBuilder();
-            cluster.submitTopology("perceptron", topology_conf, ml_topology_builder.createLocalTopology(drpc));
+            cluster.submitTopology("perceptron", topology_conf, ml_topology_builder.createLocalTopology("evaluate", drpc));
 
             int error_count = 0;
             FileWriter fstream = new FileWriter("out.csv");
@@ -55,7 +55,7 @@ public class PerceptronDRPCTopology {
                 if (!result.equals(expected_result.toString()))
                     error_count += 1;
 
-                Double error_perc = 100*error_count/Double.valueOf(i+1);
+                Double error_perc = 100 * error_count / Double.valueOf(i+1);
 
                 String format = "%s -> %s (expected: %s, %.2f%% error)";
                 System.out.println(String.format(format, input_vector, result, expected_result, error_perc));
@@ -70,7 +70,7 @@ public class PerceptronDRPCTopology {
             drpc.shutdown();
         } else {
             MLTopologyBuilder ml_topology_builder = new MLTopologyBuilder();
-            StormSubmitter.submitTopology(args[0], topology_conf, ml_topology_builder.createRemoteTopology());
+            StormSubmitter.submitTopology(args[0], topology_conf, ml_topology_builder.createRemoteTopology("evaluate"));
         }
     }
 

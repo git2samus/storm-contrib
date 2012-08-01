@@ -11,7 +11,7 @@ import storm.ml.bolt.TrainingBolt;
 import storm.ml.spout.ExampleTrainingSpout;
 
 public class MLTopologyBuilder {
-    public TopologyBuilder prepareTopology(ILocalDRPC drpc) {
+    public TopologyBuilder prepareTopology(String drpc_function_name, ILocalDRPC drpc) {
         TopologyBuilder topology_builder = new TopologyBuilder();
 
         // training
@@ -31,9 +31,9 @@ public class MLTopologyBuilder {
         // evaluation
         DRPCSpout drpc_spout;
         if (drpc!=null)
-            drpc_spout = new DRPCSpout("evaluate", drpc);
+            drpc_spout = new DRPCSpout(drpc_function_name, drpc);
         else
-            drpc_spout = new DRPCSpout("evaluate");
+            drpc_spout = new DRPCSpout(drpc_function_name);
 
         topology_builder.setSpout("drpc-spout",
             drpc_spout
@@ -56,11 +56,11 @@ public class MLTopologyBuilder {
         return topology_builder;
     }
 
-    public StormTopology createLocalTopology(ILocalDRPC drpc) {
-        return prepareTopology(drpc).createTopology();
+    public StormTopology createLocalTopology(String drpc_function_name, ILocalDRPC drpc) {
+        return prepareTopology(drpc_function_name, drpc).createTopology();
     }
 
-    public StormTopology createRemoteTopology() {
-        return prepareTopology(null).createTopology();
+    public StormTopology createRemoteTopology(String drpc_function_name) {
+        return prepareTopology(drpc_function_name, null).createTopology();
     }
 }
