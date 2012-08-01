@@ -14,6 +14,8 @@ import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.List;
 
+import storm.ml.bolt.EvaluationBolt;
+import storm.ml.bolt.TrainingBolt;
 import storm.ml.MLTopologyBuilder;
 import storm.ml.spout.ExampleTrainingSpout;
 
@@ -29,13 +31,35 @@ public class PerceptronDRPCTopology {
         promise.get();
 
         Config topology_conf = new Config();
+        String topology_name;
+        if (args==null || args.length==0)
+            topology_name = "perceptron";
+        else
+            topology_name = args[0];
+
+        MLTopologyBuilder ml_topology_builder = new MLTopologyBuilder(topology_name);
+        ml_topology_builder.setTrainingSpout(new ExampleTrainingSpout());
+        ml_topology_builder.setTrainingBolt(
+            new TrainingBolt(
+                PerceptronDRPCTopology.bias,
+                PerceptronDRPCTopology.threshold,
+                PerceptronDRPCTopology.learning_rate,
+                PerceptronDRPCTopology.MEMCACHED_SERVERS
+            )
+        );
+        ml_topology_builder.setEvaluationBolt(
+            new EvaluationBolt(
+                PerceptronDRPCTopology.bias,
+                PerceptronDRPCTopology.threshold,
+                PerceptronDRPCTopology.MEMCACHED_SERVERS
+            )
+        );
 
         if (args==null || args.length==0) {
             LocalDRPC drpc = new LocalDRPC();
             LocalCluster cluster = new LocalCluster();
 
-            MLTopologyBuilder ml_topology_builder = new MLTopologyBuilder("perceptron");
-            cluster.submitTopology("perceptron", topology_conf, ml_topology_builder.createLocalTopology("evaluate", drpc));
+            cluster.submitTopology(topology_name, topology_conf, ml_topology_builder.createLocalTopology("evaluate", drpc));
 
             int error_count = 0;
             FileWriter fstream = new FileWriter("out.csv");
@@ -69,8 +93,7 @@ public class PerceptronDRPCTopology {
             cluster.shutdown();
             drpc.shutdown();
         } else {
-            MLTopologyBuilder ml_topology_builder = new MLTopologyBuilder(args[0]);
-            StormSubmitter.submitTopology(args[0], topology_conf, ml_topology_builder.createRemoteTopology("evaluate"));
+            StormSubmitter.submitTopology(topology_name, topology_conf, ml_topology_builder.createRemoteTopology("evaluate"));
         }
     }
 
