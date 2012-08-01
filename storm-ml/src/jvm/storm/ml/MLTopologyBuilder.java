@@ -11,22 +11,28 @@ import storm.ml.bolt.TrainingBolt;
 import storm.ml.spout.ExampleTrainingSpout;
 
 public class MLTopologyBuilder {
+    String topology_prefix;
+
+    public MLTopologyBuilder(String topology_prefix) {
+        this.topology_prefix = topology_prefix;
+    }
+
     public TopologyBuilder prepareTopology(String drpc_function_name, ILocalDRPC drpc) {
         TopologyBuilder topology_builder = new TopologyBuilder();
 
         // training
-        topology_builder.setSpout("training-spout",
+        topology_builder.setSpout(this.topology_prefix + "-training-spout",
             new ExampleTrainingSpout()
         );
 
-        topology_builder.setBolt("training-bolt",
+        topology_builder.setBolt(this.topology_prefix + "-training-bolt",
             new TrainingBolt(
                 PerceptronDRPCTopology.bias,
                 PerceptronDRPCTopology.threshold,
                 PerceptronDRPCTopology.learning_rate,
                 PerceptronDRPCTopology.MEMCACHED_SERVERS
             )
-        ).shuffleGrouping("training-spout");
+        ).shuffleGrouping(this.topology_prefix + "-training-spout");
 
         // evaluation
         DRPCSpout drpc_spout;
@@ -35,22 +41,21 @@ public class MLTopologyBuilder {
         else
             drpc_spout = new DRPCSpout(drpc_function_name);
 
-        topology_builder.setSpout("drpc-spout",
+        topology_builder.setSpout(this.topology_prefix + "-drpc-spout",
             drpc_spout
         );
 
-        topology_builder.setBolt("drpc-evaluation",
+        topology_builder.setBolt(this.topology_prefix + "-drpc-evaluation",
             new EvaluationBolt(
                 PerceptronDRPCTopology.bias,
                 PerceptronDRPCTopology.threshold,
                 PerceptronDRPCTopology.MEMCACHED_SERVERS
             )
-        ).shuffleGrouping("drpc-spout");
+        ).shuffleGrouping(this.topology_prefix + "-drpc-spout");
 
-        topology_builder.setBolt(
-            "drpc-return",
+        topology_builder.setBolt(this.topology_prefix + "-drpc-return",
             new ReturnResults()
-        ).shuffleGrouping("drpc-evaluation");
+        ).shuffleGrouping(this.topology_prefix + "-drpc-evaluation");
 
         // return
         return topology_builder;

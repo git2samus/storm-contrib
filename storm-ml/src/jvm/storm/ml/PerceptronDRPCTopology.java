@@ -34,7 +34,7 @@ public class PerceptronDRPCTopology {
             LocalDRPC drpc = new LocalDRPC();
             LocalCluster cluster = new LocalCluster();
 
-            MLTopologyBuilder ml_topology_builder = new MLTopologyBuilder();
+            MLTopologyBuilder ml_topology_builder = new MLTopologyBuilder("perceptron");
             cluster.submitTopology("perceptron", topology_conf, ml_topology_builder.createLocalTopology("evaluate", drpc));
 
             int error_count = 0;
@@ -69,7 +69,7 @@ public class PerceptronDRPCTopology {
             cluster.shutdown();
             drpc.shutdown();
         } else {
-            MLTopologyBuilder ml_topology_builder = new MLTopologyBuilder();
+            MLTopologyBuilder ml_topology_builder = new MLTopologyBuilder(args[0]);
             StormSubmitter.submitTopology(args[0], topology_conf, ml_topology_builder.createRemoteTopology("evaluate"));
         }
     }
